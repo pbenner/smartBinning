@@ -28,8 +28,7 @@ func Test1(t *testing.T) {
   x := []float64{-100,-99,1,2,3,6,8,19,21,120,300,350,355,380}
   y := []float64{1,2,3,4,5,6,7,8,9,10,11,12,13}
 
-  binning, _ := New(x, y, func(x, y float64) float64 {
-    return x + y})
+  binning, _ := New(x, y, BinSum, BinLessSize)
   binning.FilterBins(5)
 
   fmt.Println("new binning 1:", binning)

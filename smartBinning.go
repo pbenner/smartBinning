@@ -63,25 +63,43 @@ func (bins binList) Swap(i, j int) {
 
 /* -------------------------------------------------------------------------- */
 
-type binListBySize []*Bin
-
-func (bins binListBySize) Len() int {
-  return len(bins)
+type binListSorted struct {
+  bins []*Bin
+  less func(Bin, Bin) bool
 }
 
-func (bins binListBySize) Less(i, j int) bool {
-  return bins[i].Size() < bins[j].Size()
+func (obj binListSorted) Len() int {
+  return len(obj.bins)
 }
 
-func (bins binListBySize) Swap(i, j int) {
-  bins[i], bins[j] = bins[j], bins[i]
+func (obj binListSorted) Less(i, j int) bool {
+  return obj.less(*obj.bins[i], *obj.bins[j])
+}
+
+func (obj binListSorted) Swap(i, j int) {
+  obj.bins[i], obj.bins[j] = obj.bins[j], obj.bins[i]
+}
+
+/* -------------------------------------------------------------------------- */
+
+func BinLessSize(a, b Bin) bool {
+  return a.Size() < b.Size()
+}
+
+func BinLessY(a, b Bin) bool {
+  return a.Y < b.Y
+}
+
+func BinSum(a, b Bin) float64 {
+  return a.Y + b.Y
 }
 
 /* -------------------------------------------------------------------------- */
 
 type Binning struct {
   Bins      binList
-  Sum       func(float64, float64) float64
+  Sum       func(Bin, Bin) float64
+  Less      func(Bin, Bin) bool
   First    *Bin
   Last     *Bin
   Smallest *Bin
@@ -89,13 +107,14 @@ type Binning struct {
   Verbose   bool
 }
 
-func New(x, y []float64, sum func(float64, float64) float64) (*Binning, error) {
+func New(x, y []float64, sum func(Bin, Bin) float64, less func(Bin, Bin) bool) (*Binning, error) {
   n := len(x)-1
 
   binning := Binning{}
   binning.Bins = make(binList, n)
   binning.Sum  = sum
-  bins := make(binListBySize, n)
+  binning.Less = less
+  bins := make([]*Bin, n)
 
   // set lower boundaries
   for i := 0; i < n; i++ {
@@ -136,7 +155,7 @@ func New(x, y []float64, sum func(float64, float64) float64) (*Binning, error) {
   for i := 0; i < n; i++ {
     bins[i] = &binning.Bins[i]
   }
-  sort.Sort(bins)
+  sort.Sort(binListSorted{bins, binning.Less})
 
   for i := 0; i < len(bins)-1; i++ {
     bins[i].Larger = bins[i+1]
@@ -175,26 +194,26 @@ func (binning *Binning) deleteBin(bin *Bin) *Bin {
   if bin.Prev == nil {
     // there is no bin to the left, merge
     // with bin on the right
-    bin.Next.Y     = binning.Sum(bin.Next.Y, bin.Y)
+    bin.Next.Y     = binning.Sum(*bin.Next, *bin)
     bin.Next.Lower = bin.Lower
     bin = bin.Next
   } else
   if bin.Next == nil {
     // there is no bin to the right, merge
     // with bin on the left
-    bin.Prev.Y     = binning.Sum(bin.Prev.Y, bin.Y)
+    bin.Prev.Y     = binning.Sum(*bin.Prev, *bin)
     bin.Prev.Upper = bin.Upper
     bin = bin.Prev
   } else {
     // merge bin with smaller bin around
     if bin.Prev.Size() < bin.Next.Size() {
       // merge with bin to the left
-      bin.Prev.Y     = binning.Sum(bin.Prev.Y, bin.Y)
+      bin.Prev.Y     = binning.Sum(*bin.Prev, *bin)
       bin.Prev.Upper = bin.Upper
       bin = bin.Prev
     } else {
       // merge with bin to the right
-      bin.Next.Y     = binning.Sum(bin.Next.Y, bin.Y)
+      bin.Next.Y     = binning.Sum(*bin.Next, *bin)
       bin.Next.Lower = bin.Lower
       bin = bin.Next
     }
@@ -276,7 +295,7 @@ func (binning *Binning) Update() error {
   }
   x = append(x, binning.Bins[len(binning.Bins)-1].Upper)
 
-  if tmp, err := New(x, y, binning.Sum); err != nil {
+  if tmp, err := New(x, y, binning.Sum, binning.Less); err != nil {
     return err
   } else {
     *binning = *tmp
