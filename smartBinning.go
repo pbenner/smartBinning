@@ -1,0 +1,295 @@
+/* Copyright (C) 2016 Philipp Benner
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
+ */
+
+package smartBinning
+
+/* -------------------------------------------------------------------------- */
+
+import   "fmt"
+//import   "math"
+import   "sort"
+
+import . "github.com/pbenner/pshape/Utility"
+
+/* -------------------------------------------------------------------------- */
+
+type Bin struct {
+  Y        float64
+  Lower    float64
+  Upper    float64
+  Next    *Bin
+  Prev    *Bin
+  Smaller *Bin
+  Larger  *Bin
+  Deleted  bool
+}
+
+func (bin Bin) Size() float64 {
+  return bin.Upper - bin.Lower
+}
+
+func (bin Bin) String() string {
+  return fmt.Sprintf("[%f, %f):%v", bin.Lower, bin.Upper, bin.Y)
+}
+
+/* -------------------------------------------------------------------------- */
+
+type binList []Bin
+
+func (bins binList) Len() int {
+  return len(bins)
+}
+
+func (bins binList) Less(i, j int) bool {
+  return bins[i].Lower < bins[j].Lower
+}
+
+func (bins binList) Swap(i, j int) {
+  bins[i], bins[j] = bins[j], bins[i]
+}
+
+/* -------------------------------------------------------------------------- */
+
+type binListBySize []*Bin
+
+func (bins binListBySize) Len() int {
+  return len(bins)
+}
+
+func (bins binListBySize) Less(i, j int) bool {
+  return bins[i].Size() < bins[j].Size()
+}
+
+func (bins binListBySize) Swap(i, j int) {
+  bins[i], bins[j] = bins[j], bins[i]
+}
+
+/* -------------------------------------------------------------------------- */
+
+type Binning struct {
+  Bins      binList
+  Sum       func(float64, float64) float64
+  First    *Bin
+  Last     *Bin
+  Smallest *Bin
+  Largest  *Bin
+  Verbose   bool
+}
+
+func New(x, y []float64, sum func(float64, float64) float64) (*Binning, error) {
+  n := len(x)-1
+
+  binning := Binning{}
+  binning.Bins = make(binList, n)
+  binning.Sum  = sum
+  bins := make(binListBySize, n)
+
+  // set lower boundaries
+  for i := 0; i < n; i++ {
+    binning.Bins[i].Lower = x[i]
+  }
+  // set y
+  if len(y) > 0 {
+    if len(y) != n {
+      return nil, fmt.Errorf("y vector has invalid length")
+    }
+    for i := 0; i < n; i++ {
+      binning.Bins[i].Y = y[i]
+    }
+  }
+  // get bins in the right order
+  sort.Sort(binning.Bins)
+  // set upper boundaries
+  for i := 0; i < n-1; i++ {
+    binning.Bins[i].Upper = binning.Bins[i+1].Lower
+  }
+  binning.Bins[n-1].Upper = x[n]
+  // create linked lists
+  for i := 0; i < n-1; i++ {
+    binning.Bins[i].Next = &binning.Bins[i+1]
+  }
+  for i := 1; i < n; i++ {
+    binning.Bins[i].Prev = &binning.Bins[i-1]
+  }
+  binning.First = &binning.Bins[0]
+  binning.Last  = &binning.Bins[n-1]
+  // create a binList and sort the elements
+  for i := 0; i < n; i++ {
+    bins[i] = &binning.Bins[i]
+  }
+  sort.Sort(bins)
+
+  for i := 0; i < len(bins)-1; i++ {
+    bins[i].Larger = bins[i+1]
+  }
+  for i := 1; i < len(bins); i++ {
+    bins[i].Smaller = bins[i-1]
+  }
+  binning.Smallest = bins[0]
+  binning.Largest  = bins[n-1]
+
+  return &binning, nil
+}
+
+func (binning *Binning) deleteBin(bin *Bin) *Bin {
+  // delete from linked list
+  if bin.Prev != nil && bin.Next != nil {
+    bin.Prev.Next = bin.Next
+    bin.Next.Prev = bin.Prev
+  } else {
+    if bin.Prev != nil {
+      // deleting last bin
+      bin.Prev.Next = nil
+      binning.Last = bin.Prev
+    }
+    if bin.Next != nil {
+      // deleting first bin
+      bin.Next.Prev = nil
+      binning.First = bin.Next
+    }
+  }
+  // delete from sorted linked list
+  binning.deleteBinSorted(bin)
+  // mark bin as deleted
+  bin.Deleted = true
+  // merge bin data
+  if bin.Prev == nil {
+    // there is no bin to the left, merge
+    // with bin on the right
+    bin.Next.Y     = binning.Sum(bin.Next.Y, bin.Y)
+    bin.Next.Lower = bin.Lower
+    bin = bin.Next
+  } else
+  if bin.Next == nil {
+    // there is no bin to the right, merge
+    // with bin on the left
+    bin.Prev.Y     = binning.Sum(bin.Prev.Y, bin.Y)
+    bin.Prev.Upper = bin.Upper
+    bin = bin.Prev
+  } else {
+    // merge bin with smaller bin around
+    if bin.Prev.Size() < bin.Next.Size() {
+      // merge with bin to the left
+      bin.Prev.Y     = binning.Sum(bin.Prev.Y, bin.Y)
+      bin.Prev.Upper = bin.Upper
+      bin = bin.Prev
+    } else {
+      // merge with bin to the right
+      bin.Next.Y     = binning.Sum(bin.Next.Y, bin.Y)
+      bin.Next.Lower = bin.Lower
+      bin = bin.Next
+    }
+  }
+  return bin
+}
+
+func (binning *Binning) deleteBinSorted(bin *Bin) {
+  if bin.Smaller != nil && bin.Larger != nil {
+    bin.Smaller.Larger = bin.Larger
+    bin.Larger.Smaller = bin.Smaller
+  } else {
+    if bin.Smaller != nil {
+      // deleting largest bin
+      bin.Smaller.Larger = nil
+      binning.Largest = bin.Smaller
+    }
+    if bin.Larger != nil {
+      // deleting smallest bin
+      bin.Larger.Smaller = nil
+      binning.Smallest = bin.Larger
+    }
+  }
+}
+
+func (binning *Binning) insertBinSortedBefore(bin, at *Bin) {
+  if at.Smaller != nil {
+    at.Smaller.Larger = bin
+  }
+  bin.Smaller = at.Smaller
+  bin.Larger  = at
+  at.Smaller  = bin
+}
+
+func (binning *Binning) insertBinSortedAfter(bin, at *Bin) {
+  if at.Larger != nil {
+    at.Larger.Smaller = bin
+  }
+  bin.Smaller = at
+  bin.Larger  = at.Larger
+  at.Larger   = bin
+}
+
+func (binning *Binning) Delete(bin *Bin) {
+  if bin.Prev == nil && bin.Next == nil {
+    return
+  }
+  // delete bin from linked list
+  bin = binning.deleteBin(bin)
+  // update bin size
+  if bin.Larger != nil && bin.Larger.Size() < bin.Size() {
+    // save next largest bin as current position
+    at := bin.Larger
+    // delete bin from sorted list
+    binning.deleteBinSorted(bin)
+    // find new position for the bin
+    for at.Larger != nil && at.Size() < bin.Size() {
+      at = at.Larger
+    }
+    if at.Size() < bin.Size() {
+      binning.insertBinSortedAfter(bin, at)
+    } else {
+      binning.insertBinSortedBefore(bin, at)
+    }
+  }
+}
+
+func (binning *Binning) Update() error {
+  // get new values
+  x := []float64{}
+  y := []float64{}
+  for t := binning.First; t != nil; t = t.Next {
+    if t.Deleted {
+      // this shouldn't happen
+      panic("internal error")
+    }
+    x = append(x, t.Lower)
+    y = append(y, t.Y)
+  }
+  x = append(x, binning.Bins[len(binning.Bins)-1].Upper)
+
+  if tmp, err := New(x, y, binning.Sum); err != nil {
+    return err
+  } else {
+    *binning = *tmp
+  }
+  return nil
+}
+
+func (binning *Binning) FilterBins(n int) error {
+  if len(binning.Bins) == 0 || len(binning.Bins) < n {
+    return nil
+  }
+  m := len(binning.Bins) - n
+  for i := 0; i < m; i++ {
+    binning.Delete(binning.Smallest)
+    if binning.Verbose {
+      if binning.Verbose {
+        NewProgress(m, 10000).PrintStderr(i+1)
+      }
+    }
+  }
+  return binning.Update()
+}
