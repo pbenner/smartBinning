@@ -22,8 +22,6 @@ import   "fmt"
 //import   "math"
 import   "sort"
 
-import . "github.com/pbenner/pshape/Utility"
-
 /* -------------------------------------------------------------------------- */
 
 type Bin struct {
@@ -310,11 +308,6 @@ func (binning *Binning) FilterBins(n int) error {
   m := len(binning.Bins) - n
   for i := 0; i < m; i++ {
     binning.Delete(binning.Smallest)
-    if binning.Verbose {
-      if binning.Verbose {
-        NewProgress(m, 10000).PrintStderr(i+1)
-      }
-    }
   }
   return binning.Update()
 }
