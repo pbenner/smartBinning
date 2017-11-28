@@ -18,7 +18,7 @@ package smartBinning
 
 /* -------------------------------------------------------------------------- */
 
-import   "fmt"
+//import   "fmt"
 import   "testing"
 
 /* -------------------------------------------------------------------------- */
@@ -29,13 +29,61 @@ func Test1(t *testing.T) {
   y := []float64{1,2,3,4,5,6,7,8,9,10,11,12,13}
 
   binning, _ := New(x, y, BinSum, BinLessSize)
+
+  if binning.Smallest.Lower != -100 {
+    t.Error("test failed")
+  }
+  if binning.Smallest.Upper != -99 {
+    t.Error("test failed")
+  }
+  if binning.Largest.Lower != 120 {
+    t.Error("test failed")
+  }
+  if binning.Largest.Upper != 300 {
+    t.Error("test failed")
+  }
+
+  // reduce number of bins
   binning.FilterBins(5)
 
-  fmt.Println("new binning 1:", binning)
+  if binning.First.Lower != -100 {
+    t.Error("test failed")
+  }
+  if binning.First.Upper != 1 {
+    t.Error("test failed")
+  }
+  if binning.Largest.Lower != 120 {
+    t.Error("test failed")
+  }
+  if binning.Largest.Upper != 300 {
+    t.Error("test failed")
+  }
+
+  // delete first bin
   binning.Delete(&binning.Bins[0])
   binning.Update()
-  fmt.Println("new binning 2:", binning)
+
+  if binning.Largest.Lower != -100 {
+    t.Error("test failed")
+  }
+  if binning.Largest.Upper != 120 {
+    t.Error("test failed")
+  }
+  if binning.Last.Lower != 350 {
+    t.Error("test failed")
+  }
+  if binning.Last.Upper != 380 {
+    t.Error("test failed")
+  }
+
+  // delete last bin
   binning.Delete(&binning.Bins[len(binning.Bins)-1])
   binning.Update()
-  fmt.Println("new binning 2:", binning)
+
+  if binning.Last.Lower != 300 {
+    t.Error("test failed")
+  }
+  if binning.Last.Upper != 380 {
+    t.Error("test failed")
+  }
 }
