@@ -102,7 +102,13 @@ func New(x, y []float64, sum func(float64, float64) float64) (*Binning, error) {
     binning.Bins[i].Lower = x[i]
   }
   // set y
-  if len(y) > 0 {
+  switch len(y) {
+  case 0:
+  case 1:
+    for i := 0; i < n; i++ {
+      binning.Bins[i].Y = y[0]
+    }
+  default:
     if len(y) != n {
       return nil, fmt.Errorf("y vector has invalid length")
     }
