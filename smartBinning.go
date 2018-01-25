@@ -19,7 +19,7 @@ package smartBinning
 /* -------------------------------------------------------------------------- */
 
 import   "fmt"
-//import   "math"
+import   "math"
 import   "sort"
 
 /* -------------------------------------------------------------------------- */
@@ -90,6 +90,18 @@ func BinLessY(a, b Bin) bool {
 
 func BinSum(a, b Bin) float64 {
   return a.Y + b.Y
+}
+
+func BinLogSum(a, b Bin) float64 {
+  x, y :=  a.Y, b.Y
+  if x > y {
+    // swap
+    x, y = x, y
+  }
+  if math.IsInf(x, -1) {
+    return y
+  }
+  return y + math.Log1p(math.Exp(x-y))
 }
 
 /* -------------------------------------------------------------------------- */
