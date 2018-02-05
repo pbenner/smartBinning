@@ -120,6 +120,9 @@ type Binning struct {
 func New(x, y []float64, sum func(Bin, Bin) float64, less func(Bin, Bin) bool) (*Binning, error) {
   n := len(x)-1
 
+  if n < 2 {
+    return nil, fmt.Errorf("length of x must be greater than two")
+  }
   binning := Binning{}
   binning.Bins = make(binList, n)
   binning.Sum  = sum
