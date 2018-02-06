@@ -219,7 +219,7 @@ func (binning *Binning) deleteBin(bin *Bin) *Bin {
     bin = bin.Prev
   } else {
     // merge bin with smaller bin around
-    if bin.Prev.Size() < bin.Next.Size() {
+    if binning.Less(*bin.Prev, *bin.Next) {
       // merge with bin to the left
       bin.Prev.Y     = binning.Sum(*bin.Prev, *bin)
       bin.Prev.Upper = bin.Upper
@@ -277,19 +277,19 @@ func (binning *Binning) Delete(bin *Bin) {
   // delete bin from linked list
   bin = binning.deleteBin(bin)
   // update bin size
-  if bin.Larger != nil && bin.Larger.Size() < bin.Size() {
+  if bin.Larger != nil && binning.Less(*bin.Larger, *bin) {
     // save next largest bin as current position
     at := bin.Larger
     // delete bin from sorted list
     binning.deleteBinSorted(bin)
     // find new position for the bin
-    for at.Larger != nil && at.Size() < bin.Size() {
+    for at.Larger != nil && binning.Less(*at, *bin) {
       at = at.Larger
     }
-    if at.Size() < bin.Size() {
-      binning.insertBinSortedAfter(bin, at)
-    } else {
+    if binning.Less(*bin, *at) {
       binning.insertBinSortedBefore(bin, at)
+    } else {
+      binning.insertBinSortedAfter(bin, at)
     }
   }
 }
