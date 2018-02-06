@@ -18,9 +18,10 @@ package smartBinning
 
 /* -------------------------------------------------------------------------- */
 
-import   "fmt"
-import   "math"
-import   "sort"
+import "fmt"
+import "bytes"
+import "math"
+import "sort"
 
 /* -------------------------------------------------------------------------- */
 
@@ -325,4 +326,15 @@ func (binning *Binning) FilterBins(n int) error {
     binning.Delete(binning.Smallest)
   }
   return binning.Update()
+}
+
+func (binning *Binning) String() string {
+  var buffer bytes.Buffer
+  for at := binning.First; at != nil; at = at.Next {
+    if at != binning.First {
+      fmt.Fprintf(&buffer, " ")
+    }
+    fmt.Fprintf(&buffer, "[%f, %f)", at.Lower, at.Upper)
+  }
+  return buffer.String()
 }
