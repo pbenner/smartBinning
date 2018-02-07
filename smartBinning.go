@@ -107,6 +107,38 @@ func BinLogSum(a, b Bin) float64 {
 
 /* -------------------------------------------------------------------------- */
 
+func lessWrapper(less func(Bin, Bin) bool, a, b Bin) bool {
+  if !less(a, b) && !less(b, a) {
+    // bins are equal, check neighbors
+    c := a.Prev
+    d := b.Prev
+    if c == nil {
+      c = a.Next
+    } else {
+      if a.Next != nil {
+        if less(*a.Next, *c) {
+          c = a.Next
+        }
+      }
+    }
+    if d == nil {
+      d = b.Next
+    } else {
+      if b.Next != nil {
+        if less(*b.Next, *d) {
+          d = b.Next
+        }
+      }
+    }
+    if c != nil && d != nil {
+      return less(*c, *d)
+    }
+  }
+  return less(a, b)
+}
+
+/* -------------------------------------------------------------------------- */
+
 type Binning struct {
   Bins      binList
   Sum       func(Bin, Bin) float64
@@ -115,6 +147,7 @@ type Binning struct {
   Last     *Bin
   Smallest *Bin
   Largest  *Bin
+  Insert   *Bin
   Verbose   bool
 }
 
@@ -127,7 +160,7 @@ func New(x, y []float64, sum func(Bin, Bin) float64, less func(Bin, Bin) bool) (
   binning := Binning{}
   binning.Bins = make(binList, n)
   binning.Sum  = sum
-  binning.Less = less
+  binning.Less = func(a, b Bin) bool { return lessWrapper(less, a, b) }
   bins := make([]*Bin, n)
 
   // set lower boundaries
@@ -281,6 +314,10 @@ func (binning *Binning) Delete(bin *Bin) {
   if bin.Larger != nil && binning.Less(*bin.Larger, *bin) {
     // save next largest bin as current position
     at := bin.Larger
+    // check if the last insert position is feasible
+    if binning.Insert != nil && !binning.Less(*bin, *binning.Insert) {
+      at = binning.Insert
+    }
     // delete bin from sorted list
     binning.deleteBinSorted(bin)
     // find new position for the bin
@@ -292,6 +329,7 @@ func (binning *Binning) Delete(bin *Bin) {
     } else {
       binning.insertBinSortedAfter(bin, at)
     }
+    binning.Insert = at
   }
 }
 

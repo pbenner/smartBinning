@@ -30,10 +30,10 @@ func Test1(t *testing.T) {
 
   binning, _ := New(x, y, BinSum, BinLessSize)
 
-  if binning.Smallest.Lower != -100 {
+  if binning.Smallest.Lower != 1 {
     t.Error("test failed")
   }
-  if binning.Smallest.Upper != -99 {
+  if binning.Smallest.Upper != 2 {
     t.Error("test failed")
   }
   if binning.Largest.Lower != 120 {
