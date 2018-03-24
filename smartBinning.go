@@ -265,6 +265,7 @@ func (binning *Binning) deleteBin(bin *Bin) *Bin {
       bin = bin.Next
     }
   }
+  binning.deleteBinSorted(bin)
   return bin
 }
 
@@ -308,19 +309,19 @@ func (binning *Binning) Delete(bin *Bin) {
   if bin.Prev == nil && bin.Next == nil {
     return
   }
-  // save next largest bin as current position (do this before deleting the
-  // bin, since this may change the next largest bin)
-  at := bin.Larger
   // delete bin from linked list
   bin = binning.deleteBin(bin)
-  // update bin size
-  if at != nil && binning.Less(*at, *bin) {
+  // save next largest bin as current position
+  at := bin.Larger
+  // insert bin into sorted list
+  if at == nil {
+    // there is no larger bin, insert after largest
+    binning.insertBinSortedAfter(bin, binning.Largest)
+  } else {
     // check if the last insert position is feasible
-    if binning.Insert != nil && !binning.Less(*bin, *binning.Insert) {
+    if binning.Insert != nil && binning.Less(*binning.Insert, *bin) {
       at = binning.Insert
     }
-    // delete bin from sorted list
-    binning.deleteBinSorted(bin)
     // find new position for the bin
     for at.Larger != nil && binning.Less(*at, *bin) {
       at = at.Larger
