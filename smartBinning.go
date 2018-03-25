@@ -288,7 +288,9 @@ func (binning *Binning) deleteBinSorted(bin *Bin) {
 }
 
 func (binning *Binning) insertBinSortedBefore(bin, at *Bin) {
-  if at.Smaller != nil {
+  if at.Smaller == nil {
+    binning.Smallest = bin
+  } else {
     at.Smaller.Larger = bin
   }
   bin.Smaller = at.Smaller
@@ -297,7 +299,9 @@ func (binning *Binning) insertBinSortedBefore(bin, at *Bin) {
 }
 
 func (binning *Binning) insertBinSortedAfter(bin, at *Bin) {
-  if at.Larger != nil {
+  if at.Larger == nil {
+    binning.Largest = bin
+  } else {
     at.Larger.Smaller = bin
   }
   bin.Smaller = at
@@ -374,7 +378,9 @@ func (binning *Binning) String() string {
     if at != binning.First {
       fmt.Fprintf(&buffer, " ")
     }
-    fmt.Fprintf(&buffer, "[%f, %f)", at.Lower, at.Upper)
+    if !at.Deleted {
+      fmt.Fprintf(&buffer, "[%f, %f):%f", at.Lower, at.Upper, at.Size())
+    }
   }
   return buffer.String()
 }
