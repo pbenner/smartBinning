@@ -379,7 +379,7 @@ func (binning *Binning) String() string {
       fmt.Fprintf(&buffer, " ")
     }
     if !at.Deleted {
-      fmt.Fprintf(&buffer, "[%f, %f):%f", at.Lower, at.Upper, at.Size())
+      fmt.Fprintf(&buffer, "%v", at)
     }
   }
   return buffer.String()
